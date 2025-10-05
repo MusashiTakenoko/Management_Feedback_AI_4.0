@@ -1,0 +1,89 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ダッシュボード | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <section class="card"><div class="body">
+      <div class="row" style="justify-content:space-between">
+        <div class="pill">総合点の推移（直近20件）</div>
+        <div class="hint" id="trendText">トレンド計算中…</div>
+      </div>
+      <canvas id="lineChart" style="max-height:360px"></canvas>
+    </div></section>
+
+    <section class="card" style="margin-top:16px"><div class="body">
+      <div class="row" style="justify-content:space-between">
+        <div class="pill">項目別平均（全期間）</div>
+        <div id="avgKvs"></div>
+      </div>
+      <canvas id="barChart" style="max-height:360px"></canvas>
+    </div></section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  AppShell.mountShell();
+  let lineChart, barChart;
+
+  (async()=>{
+    const rows = await loadScores(200);
+    renderLine(rows.slice(-20));
+    renderTrend(rows);
+    renderAverages(rows);
+  })();
+
+  async function loadScores(limit=200){
+    const { data, error } = await window.sb.from('sessions',{schema:'app'})
+      .select('created_at, scores_json').order('created_at',{ascending:true}).limit(limit);
+    if(error){ console.error(error); return []; }
+    return (data||[]).map(r=>({
+      x:new Date(r.created_at),
+      total:r.scores_json?.total ?? null,
+      coaching:r.scores_json?.coaching ?? null,
+      listening:r.scores_json?.listening ?? null,
+      technique:r.scores_json?.technique ?? null,
+      next_step:r.scores_json?.next_step ?? null,
+    }));
+  }
+  function renderLine(rows){
+    const labels=rows.map(r=>fmt(r.x)); const totals=rows.map(r=>r.total);
+    if(lineChart) lineChart.destroy();
+    lineChart=new Chart(document.getElementById('lineChart'),{
+      type:'line', data:{ labels, datasets:[{ label:'TOTAL', data:totals, tension:0.25, pointRadius:3 }]},
+      options:{ responsive:true, scales:{ y:{ suggestedMin:0, suggestedMax:100 } } }
+    });
+  }
+  function renderAverages(rows){
+    const avg=arr=>{ const v=arr.filter(x=>typeof x==='number'); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; };
+    const co=avg(rows.map(r=>r.coaching)), li=avg(rows.map(r=>r.listening)), te=avg(rows.map(r=>r.technique)), ne=avg(rows.map(r=>r.next_step));
+    document.getElementById('avgKvs').innerHTML=`
+      <span class="kv">COACHING平均 <b>${num(co)}</b></span>
+      <span class="kv">LISTENING平均 <b>${num(li)}</b></span>
+      <span class="kv">TECH平均 <b>${num(te)}</b></span>
+      <span class="kv">NEXT平均 <b>${num(ne)}</b></span>`;
+    if(barChart) barChart.destroy();
+    barChart=new Chart(document.getElementById('barChart'),{
+      type:'bar', data:{ labels:['COACHING(40)','LISTENING(30)','TECH(20)','NEXT(10)'], datasets:[{ label:'平均スコア', data:[co,li,te,ne] }]},
+      options:{ responsive:true, scales:{ y:{ suggestedMin:0, suggestedMax:40 } } }
+    });
+  }
+  function renderTrend(rows){
+    const t=document.getElementById('trendText');
+    const totals=rows.map(r=>r.total).filter(x=>typeof x==='number');
+    if(totals.length<6){ t.textContent='データ不足（6件未満）'; return; }
+    const avg=a=>a.reduce((x,y)=>x+y,0)/a.length;
+    const last3=avg(totals.slice(-3)), prev3=avg(totals.slice(-6,-3)), diff=last3-prev3;
+    const arrow=diff>1?'▲': diff<-1?'▼':'■';
+    const cls=diff>1?'ok': diff<-1?'bad':'hint';
+    t.innerHTML=`<span class="${cls}">${arrow} 直近3回 ${num(last3)} / 前3回 ${num(prev3)}（差 ${num(diff)}）</span>`;
+  }
+  const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  const num=v=>(v==null||isNaN(v))?'-':v.toFixed(1);
+</script>
+</body></html>

@@ -1,0 +1,34 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>設定 | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <section class="card"><div class="body">
+      <h3 style="margin:0 0 8px">アカウント</h3>
+      <p class="hint" id="userInfo">読み込み中…</p>
+      <button class="btn btn-primary" id="signoutBtn">サインアウト</button>
+    </div></section>
+
+    <section class="card" style="margin-top:16px"><div class="body">
+      <h3 style="margin:0 0 8px">アプリ設定</h3>
+      <p class="hint">準備中：テーマ切替・通知・匿名化などを追加予定です。</p>
+    </div></section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script>
+  AppShell.mountShell();
+  (async()=>{
+    const { data:{ user } } = await window.sb.auth.getUser();
+    document.getElementById("userInfo").textContent = `ログイン中：${user.email}（ID: ${user.id.slice(0,8)}…）`;
+  })();
+  document.getElementById("signoutBtn").addEventListener("click", async ()=>{
+    await window.sb.auth.signOut(); location.href="login.html";
+  });
+</script>
+</body></html>

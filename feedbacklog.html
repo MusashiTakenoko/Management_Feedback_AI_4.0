@@ -1,0 +1,86 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>過去のフィードバック | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <section class="card"><div class="body">
+      <div class="row" style="justify-content:space-between">
+        <div><span class="pill">履歴一覧</span></div>
+        <button id="moreBtn" class="btn btn-primary" style="display:none">もっと見る</button>
+      </div>
+      <div id="list" class="grid2" style="margin-top:10px"></div>
+    </div></section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script>
+  AppShell.mountShell();
+  let page=0; const PAGE=10; let hasMore=true;
+
+  (async()=>{ await loadPage(); })();
+
+  async function loadPage(){
+    if(!hasMore) return;
+    const from=page*PAGE, to=from+PAGE-1;
+    const { data:sessions, error } = await window.sb.from('sessions',{schema:'app'})
+      .select('session_id, created_at, category, values_json, scores_json')
+      .order('created_at',{ascending:false}).range(from,to);
+    if(error){ console.error(error); return; }
+    if(!sessions || sessions.length===0){ hasMore=false; toggle(); return; }
+
+    const ids=sessions.map(s=>s.session_id);
+    const { data:fbs, error:e2 } = await window.sb.from('session_feedbacks',{schema:'app'})
+      .select('session_id, good_points, better_points, seven_habits').in('session_id', ids);
+    if(e2){ console.error(e2); }
+    const fbMap=new Map((fbs||[]).map(x=>[x.session_id,x]));
+    renderCards(sessions.map(s=>({...s, fb:fbMap.get(s.session_id)||{}})));
+    hasMore=sessions.length===PAGE; page+=1; toggle();
+  }
+  function toggle(){ document.getElementById('moreBtn').style.display = hasMore? 'inline-block':'none'; }
+  document.getElementById('moreBtn').addEventListener('click', loadPage);
+
+  function renderCards(rows){
+    const $list=document.getElementById('list');
+    rows.forEach(r=>{
+      const dt=new Date(r.created_at); const dstr=dt.toLocaleString();
+      const sc=r.scores_json||{}; const v=r.values_json||{};
+      const el=document.createElement('article'); el.className='card';
+      el.innerHTML=`
+        <div class="body">
+          <div class="row" style="justify-content:space-between">
+            <div class="row"><span class="pill">#${r.session_id.slice(0,8)}</span><span class="hint">${dstr}</span></div>
+            <div class="pill">${r.category||"カテゴリ未設定"}</div>
+          </div>
+          <div style="margin-top:6px">
+            <span class="kv">TOTAL <b>${sc.total??'-'}</b></span>
+            <span class="kv">COACHING <b>${sc.coaching??'-'}</b></span>
+            <span class="kv">LISTENING <b>${sc.listening??'-'}</b></span>
+            <span class="kv">TECH <b>${sc.technique??'-'}</b></span>
+            <span class="kv">NEXT <b>${sc.next_step??'-'}</b></span>
+          </div>
+          <div>
+            ${v.open_question_rate!=null? `<span class="kv">オープン質問率 ${(v.open_question_rate*100).toFixed(1)}%</span>`:''}
+            ${v.subordinate_talk_ratio!=null? `<span class="kv">部下トーク比 ${(v.subordinate_talk_ratio*100).toFixed(1)}%</span>`:''}
+            ${v.reflection_count!=null? `<span class="kv">リフレクション ${v.reflection_count}回</span>`:''}
+          </div>
+          ${renderSection('良い点✨', r.fb.good_points)}
+          ${renderSection('もっと良くなる点💡', r.fb.better_points)}
+          ${r.fb.seven_habits ? renderSection('7つの習慣の観点📘', r.fb.seven_habits) : ''}
+        </div>`;
+      $list.appendChild(el);
+    });
+  }
+  function renderSection(title, md){
+    if(!md) return ''; const items=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/^-\s*/,''));
+    if(items.length===0) return '';
+    const lis=items.map(x=>`<li>${escapeHtml(x)}</li>`).join('');
+    return `<h4 class="hint" style="margin:8px 0 4px">${title}</h4><ul class="clean">${lis}</ul>`;
+  }
+  function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+</script>
+</body></html>

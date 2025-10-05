@@ -1,0 +1,48 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ホーム | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <section class="card"><div class="body">
+      <div class="row" style="justify-content:space-between">
+        <div><span class="pill">ようこそ</span></div>
+        <div><a href="input.html" class="btn btn-primary">ログ入力へ</a></div>
+      </div>
+      <p class="hint" id="hello">ログイン確認中…</p>
+      <div class="grid2" style="margin-top:8px">
+        <div class="card"><div class="body">
+          <div class="pill">クイックアクセス</div>
+          <div class="row" style="flex-wrap:wrap; gap:8px; margin-top:8px">
+            <a class="btn btn-ghost" href="input.html">📝 ログ入力</a>
+            <a class="btn btn-ghost" href="feedbacklog.html">🗂️ 過去のFB</a>
+            <a class="btn btn-ghost" href="dashboard.html">📈 ダッシュボード</a>
+            <a class="btn btn-ghost" href="soudan.html">💬 相談チャット</a>
+            <a class="btn btn-ghost" href="shindan.html">🧭 タイプ診断</a>
+            <a class="btn btn-ghost" href="setting.html">⚙️ 設定</a>
+          </div>
+        </div></div>
+        <div class="card"><div class="body">
+          <div class="pill">ニュース / お知らせ</div>
+          <ul class="clean">
+            <li>V0 PoCを公開しました。フィードバック歓迎！</li>
+            <li>次のバージョンでEdge Function化（APIキー秘匿）を予定しています。</li>
+          </ul>
+        </div></div>
+      </div>
+    </div></section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script>
+  AppShell.mountShell();
+  (async()=>{
+    const { data:{ user } } = await window.sb.auth.getUser();
+    document.getElementById('hello').textContent = `ようこそ！ ${user.email}`;
+  })();
+</script>
+</body></html>

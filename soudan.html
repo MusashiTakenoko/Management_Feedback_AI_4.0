@@ -1,0 +1,60 @@
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>なんでも相談 | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <section class="card chat">
+      <div id="messages" class="messages">
+        <div class="msg bot">こんにちは！ここでは自由に相談できます。業務・1on1・メンバー対応など何でもどうぞ。</div>
+      </div>
+      <div class="composer">
+        <textarea id="chatInput" placeholder="例：部下の目標設定が形骸化しています。打開策は？"></textarea>
+        <button id="sendBtn" class="btn btn-primary">送信</button>
+      </div>
+      <div class="hint" style="padding:8px 16px">※将来は専用のDifyアプリに切り替え予定。今は共通のApp APIキーで動作します。</div>
+    </section>
+  </main>
+</div>
+
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script>
+  AppShell.mountShell();
+</script>
+<script>
+const DIFY_API_BASE="https://api.dify.ai/v1";
+const DIFY_API_KEY="app-oQ6FrskTeh3kjOopzVmm44pq";
+let conversationId=null, currentUser=null;
+
+const $messages=document.getElementById("messages");
+function addMessage(role,text){
+  const div=document.createElement("div");
+  div.className="msg "+(role==="user"?"user":"bot");
+  div.textContent=text; $messages.appendChild(div);
+  $messages.scrollTop=$messages.scrollHeight;
+}
+function setThinking(on=true){
+  if(on){ addMessage("bot","…考え中"); }
+  else{
+    const nodes=[...$messages.querySelectorAll(".msg.bot")];
+    for(let i=nodes.length-1;i>=0;i--){ if(nodes[i].textContent==="…考え中"){ nodes[i].remove(); break; } }
+  }
+}
+(async()=>{ const { data:{ user } } = await window.sb.auth.getUser(); currentUser=user; })();
+
+document.getElementById("sendBtn").addEventListener("click", async ()=>{
+  const t=document.getElementById("chatInput"); const msg=t.value.trim(); if(!msg) return;
+  t.value=""; addMessage("user",msg); setThinking(true);
+  try{
+    const body={inputs:{}, query:msg, user: currentUser?.id || "demo-user", response_mode:"blocking", conversation_id:conversationId};
+    const res=await fetch(`${DIFY_API_BASE}/chat-messages`,{ method:"POST", headers:{ "Authorization":`Bearer ${DIFY_API_KEY}`,"Content-Type":"application/json" }, body:JSON.stringify(body) });
+    const text=await res.text(); if(!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+    const data=JSON.parse(text); conversationId=data.conversation_id||conversationId;
+    setThinking(false); addMessage("bot", data.answer||"(応答なし)");
+  }catch(e){ setThinking(false); addMessage("bot","エラー："+e.message); }
+});
+</script>
+</body></html>

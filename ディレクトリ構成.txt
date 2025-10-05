@@ -1,0 +1,23 @@
+project-root/
+│
+├─ frontend/                     ← GitHub Pagesにアップ
+│   ├─ login.html
+│   ├─ index.html
+│   ├─ input.html
+│   ├─ dashboard.html
+│   ├─ feedbacklog.html
+│   ├─ soudan.html
+│   ├─ shindan.html
+│   ├─ setting.html
+│   ├─ assets/                   ← CSS・JS・画像
+│   │    ├─ style.css
+│   │    └─ main.js
+│   └─ libs/
+│        └─ supabase.min.js      ← Supabase公式SDK
+│
+└─ supabase/
+    ├─ functions/
+    │    └─ dify-eval/
+    │          └─ index.ts        ← Dify呼び出し関数（安全サーバー）
+    └─ sql/
+         └─ init_schema.sql       ← DB定義
