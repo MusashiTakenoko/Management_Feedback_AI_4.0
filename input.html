@@ -82,7 +82,7 @@
             <p class="hint">※スコアは暫定的にフロントで計算（将来はEdge Functionへ移行）。</p>
 
             <div class="row" style="margin-top:8px">
-              <button class="btn btn-primary" id="saveBtn">Supabaseへ保存</button>
+              <button class="btn btn-primary" id="saveBtn">フィードバックを保存</button>
               <span class="hint" id="saveStatus"></span>
             </div>
           </div>
@@ -185,7 +185,7 @@
         headers: { 'Authorization': `Bearer ${DIFY_API_KEY}` },
         body: form
       });
-      if(!res.ok) throw new Error(`Difyファイルアップロードに失敗: ${res.status}`);
+      if(!res.ok) throw new Error(`ファイルアップロードに失敗: ${res.status}`);
       return res.json(); // { id, ... }
     }
 
@@ -399,7 +399,7 @@ function parseFeedback(text){
       if (!transcript && !lastUploadedFileId) { alert('会話ログの貼付またはファイルアップロードが必要です'); return; }
 
       try{
-        els.statusLine.textContent = 'Difyへ送信中…';
+        els.statusLine.textContent = '送信中…';
         const sbUser = await getCurrentUserSafe();
 
         const files = [];
