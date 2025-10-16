@@ -209,46 +209,51 @@
     }
 
     // ========= パース（JSONは表示しない） =========
-    function parseFeedback(text){
-      const result={ good:[], better:[], habits:[], values:null };
-      // 1) 末尾JSONや ===JSON=== ブロックを拾って values だけ抽出（画面表示なし）
-      try{
-        const part = text.split("===JSON===")[1] || (text.match(/\{[\s\S]*\}$/)?.[0] ?? "");
-        if(part){
-          const j = JSON.parse(part.trim());
-          if(j.values) result.values = j.values;
-        }
-      }catch{ /* 解析失敗は無視 */ }
+function parseFeedback(text){
+  const result = { good: [], better: [], habits: [], values: null };
 
-      // 2) セクション抽出 → 箇条書き行に整形
-      const pick = (re) => {
-        const i = text.search(re); if(i<0) return "";
-        const after = text.slice(i);
-        const j = after.search(/【?良い点.*?】|【?もっと良くなる点.*?】|【?7つの習慣.*?】/);
-        const tail = after.slice(j>0?0:0); // 後続検出時に適宜切る実装でもOK
-        return j>0 ? after.slice(0,j) : after;
-      };
-      const toBullets = (block)=>{
-        if(!block) return [];
-        const lines = block.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-        const arr=[];
-        for(const s of lines){
-          const m = s.match(/^(?:[-・*]|\d+\.)\s*(.*)$/);
-          const item = m ? m[1] : s;
-          if(!/良い点|もっと良くなる点|7つの習慣/.test(item)) arr.push(item);
-        }
-        return Array.from(new Set(arr));
-      };
+  // --- ① JSONブロックを検出して取り除く ---
+  // 「===JSON===」以降または末尾の { ... } 部分を削除
+  let cleaned = text;
+  if (cleaned.includes("===JSON===")) {
+    cleaned = cleaned.split("===JSON===")[0];
+  } else {
+    const jsonMatch = cleaned.match(/\{[\s\S]*\}$/);
+    if (jsonMatch) cleaned = cleaned.replace(jsonMatch[0], "");
+  }
 
-      const good   = pick(/【?良い点.*?】?/);
-      const better = pick(/【?もっと良くなる点.*?】?/);
-      const habits = pick(/【?7つの習慣.*?】?/);
-
-      result.good   = toBullets(good);
-      result.better = toBullets(better);
-      result.habits = toBullets(habits);
-      return result;
+  // --- ② JSONは内部でだけ解析（画面には出さない）---
+  try {
+    const m = text.split("===JSON===")[1] || (text.match(/\{[\s\S]*\}$/)?.[0] ?? "");
+    if (m) {
+      const j = JSON.parse(m.trim());
+      if (j.values) result.values = j.values;
     }
+  } catch { /* 無視OK */ }
+
+  // --- ③ セクションを抽出 ---
+  const pick = (label) => {
+    const re = new RegExp(`【${label}】([\\s\\S]*?)(?=\\n\\s*【|$)`, 'm');
+    const m = cleaned.match(re);
+    return m ? m[1].trim() : "";
+  };
+
+  const toList = (block) => {
+    if (!block) return [];
+    return block
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(s => s.replace(/^(?:・|-|\d+\.)\s*/, ""))
+      .filter(s => !/良い点|もっと良くなる点|7つの習慣/.test(s));
+  };
+
+  result.good   = toList(pick("良い点✨"));
+  result.better = toList(pick("もっと良くなる点💡"));
+  result.habits = toList(pick("7つの習慣の観点📘"));
+
+  return result;
+}
 
     // ========= スコア計算 =========
     function calcScores(values){
