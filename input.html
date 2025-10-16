@@ -1,477 +1,306 @@
-<!DOCTYPE html>
-<html lang="ja">
-<head>
-  <meta charset="UTF-8" />
-  <title>1on1フィードバックAI｜入力と評価</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <!-- スタイル（パスはプロジェクトに合わせてください） -->
-  <link rel="stylesheet" href="./assets/app.css" />
-  <style>
-    /* ここに最低限の見た目（既存app.cssに.card等があればそれを利用） */
-    .container { max-width: 960px; margin: 24px auto; padding: 0 16px; }
-    .row { display: flex; gap: 12px; flex-wrap: wrap; }
-    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    .muted { color: #6b7280; }
-    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #111827; color: #fff; cursor: pointer; }
-    .btn:disabled { opacity: 0.6; cursor: not-allowed; }
-    .input, textarea { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; }
-    textarea { min-height: 180px; }
-    .stack { display: grid; gap: 12px; }
-    .two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .section-title { margin: 8px 0; font-weight: 700; }
-    .divider { height: 1px; background: #e5e7eb; margin: 16px 0; }
-    .pill { display: inline-block; font-size: 12px; padding: 2px 8px; border: 1px solid #e5e7eb; border-radius: 999px; color:#374151;}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1>1on1フィードバックAI｜入力と評価</h1>
-    <p class="muted">会話ログ（文字起こし）を貼り付けるか、テキストファイルをアップロードして評価します。</p>
+<!doctype html><html lang="ja"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>ログ入力 | 1on1フィードバックAI</title>
+<link rel="stylesheet" href="app.css">
+<link href="https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700&display=swap" rel="stylesheet">
+</head><body>
+<div id="app-root">
+  <main id="content" class="content">
+    <div class="grid2">
+      <section class="card"><div class="body">
+        <h2 style="margin:0 0 6px">ログ入力（評価）</h2>
+        <p class="hint">文字起こしテキストを貼り付け、評価→保存まで行います。</p>
+        <label for="name">氏名（必須）</label>
+        <input id="name" type="text" placeholder="例：河野さん" required>
+        <label for="relation">誰との1on1（関係性）</label>
+        <input id="relation" type="text" placeholder="例：営業部の部下A（入社2年目）">
+        <label for="category">どんな1on1（目的・カテゴリ）</label>
+        <input id="category" type="text" placeholder="例：② 業務進捗・成果管理系">
+        <label for="transcript">会話ログ（文字起こしテキスト）</label>
+        <textarea id="transcript" placeholder="ここに会話ログを貼り付け"></textarea>
 
-    <div class="row">
-      <div class="card" style="flex:2 1 520px;">
-        <div class="stack">
-          <div class="two">
-            <div>
-              <label class="section-title">上司の氏名</label>
-              <input id="bossName" class="input" placeholder="例：上司 太郎" />
-            </div>
-            <div>
-              <label class="section-title">対象（誰との1on1）</label>
-              <input id="partnerName" class="input" placeholder="例：鈴木 君" />
-            </div>
-          </div>
-
-          <div class="two">
-            <div>
-              <label class="section-title">どんな1on1（目的・カテゴリ）</label>
-              <input id="category" class="input" placeholder="例：目標進捗の確認／育成" />
-            </div>
-            <div>
-              <label class="section-title">文字起こしファイル（任意）</label>
-              <input id="transcriptFile" type="file" accept=".txt,.md,.csv,.vtt,.srt,.docx,.pdf" />
-            </div>
-          </div>
-
-          <div>
-            <label class="section-title">会話ログ（テキスト貼り付け）</label>
-            <textarea id="transcriptText" placeholder="ここに会話ログのテキストを貼り付けます"></textarea>
-          </div>
-
-          <div class="row" style="align-items:center; justify-content: space-between;">
-            <div class="muted">
-              <span class="pill">PoC</span>
-              <span class="pill">非言語情報は未使用</span>
-              <span class="pill">社内限定</span>
-            </div>
-            <div class="row" style="gap:8px;">
-              <button class="btn" id="btnEvaluate">評価する</button>
-              <button class="btn" id="btnSave" disabled>保存する</button>
-            </div>
-          </div>
+        <div class="row" style="margin-top:8px;flex-wrap:wrap">
+          <input type="file" id="fileInput" style="max-width:280px">
+          <button class="btn btn-ghost" id="uploadBtn">ファイルをDifyへアップロード</button>
+          <span class="hint" id="uploadStatus"></span>
         </div>
-      </div>
 
-      <div class="card" style="flex:1 1 320px;">
-        <div class="stack">
-          <div><strong>進行状況</strong></div>
-          <div id="status" class="muted">待機中</div>
-          <div class="divider"></div>
-          <div><strong>定量（算出）</strong></div>
-          <div class="muted" id="scoreSummary">—</div>
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-primary" id="startEvalBtn">送信して評価を開始</button>
+          <span class="hint" id="statusLine"></span>
         </div>
-      </div>
+      </div></section>
+
+      <!-- ▼ 出力側。JSONは表示せず、3カードでレンダリングします -->
+      <section class="card"><div class="body" id="resultArea" style="display:none">
+        <div><span class="pill">定性フィードバック</span></div>
+
+        <!-- 3カードをJSで差し込む領域 -->
+        <div id="qualCards" style="margin-top:10px; display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:12px;"></div>
+
+        <div style="margin-top:14px"><span class="pill">定量スコア</span></div>
+        <div class="scorebox" style="margin-top:8px">
+          <div class="score"><div class="name">TOTAL</div><div id="sTOTAL" class="val">-</div></div>
+          <div class="score"><div class="name">コーチング</div><div id="sCO" class="val">-</div></div>
+          <div class="score"><div class="name">傾聴・共感</div><div id="sLI" class="val">-</div></div>
+          <div class="score"><div class="name">テクニック</div><div id="sTE" class="val">-</div></div>
+          <div class="score"><div class="name">次の一手</div><div id="sNE" class="val">-</div></div>
+        </div>
+        <p class="hint">※スコアは暫定的にフロントで計算。将来はEdge Functionへ移行。</p>
+
+        <div class="row" style="margin-top:8px">
+          <button class="btn btn-primary" id="saveBtn">Supabaseへ保存</button>
+          <span class="hint" id="saveStatus"></span>
+        </div>
+      </div></section>
     </div>
+  </main>
+</div>
 
-    <div class="card" style="margin-top:12px;">
-      <h2 style="margin-top:0;">定性フィードバック</h2>
-      <div id="qualitativeResult" class="stack"></div>
-    </div>
-  </div>
+<script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+<script src="app-shell.js"></script>
+<script>
+  AppShell.mountShell();
+</script>
 
-  <!-- Supabase SDK（パスはプロジェクトのlibsに合わせてください） -->
-  <script src="./libs/supabase.min.js"></script>
-  <!-- アプリ共通（ログイン状態の保持や sb クライアント初期化がある想定） -->
-  <script src="./assets/app-shell.js"></script>
+<!-- Dify + スコア + 保存（window.sbで動作） -->
+<script>
+const DIFY_API_BASE="https://api.dify.ai/v1";
+const DIFY_API_KEY="app-oQ6FrskTeh3kjOopzVmm44pq"; // 社内PoC想定（公開前提）
 
-  <script>
-    /**
-     * ===== 設定（社内PoC向けにフロント直書き）=====
-     * DifyのApp APIキーとベースURL。
-     * 注意：商用化時はEdge Function等で秘匿してください。
-     */
-    const DIFY_API_BASE = "https://api.dify.ai/v1";
-    const DIFY_API_KEY  = "app-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"; // ← 自社のDify App Key
+let conversationId=null;
+let lastUploadedFileId=null;
+let currentUser=null;
 
-    /**
-     * Supabaseクライアントは app-shell.js 側で window.sb として初期化済みの想定です。
-     * もし未設定なら下記のように初期化してください：
-     * window.sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-     */
+// スコアUI
+const scoreEls = {
+  total: document.getElementById('sTOTAL'),
+  coaching: document.getElementById('sCO'),
+  listening: document.getElementById('sLI'),
+  technique: document.getElementById('sTE'),
+  next: document.getElementById('sNE'),
+};
+const $resultArea = document.getElementById('resultArea');
+const $qualCards  = document.getElementById('qualCards');
+const $statusLine = document.getElementById('statusLine');
+const $saveStatus = document.getElementById('saveStatus');
 
-    // 画面状態の参照
-    const el = {
-      bossName:       document.getElementById('bossName'),
-      partnerName:    document.getElementById('partnerName'),
-      category:       document.getElementById('category'),
-      transcriptFile: document.getElementById('transcriptFile'),
-      transcriptText: document.getElementById('transcriptText'),
-      btnEvaluate:    document.getElementById('btnEvaluate'),
-      btnSave:        document.getElementById('btnSave'),
-      status:         document.getElementById('status'),
-      scoreSummary:   document.getElementById('scoreSummary'),
-      qualitative:    document.getElementById('qualitativeResult'),
-    };
+// 便利関数
+const clamp = (v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+function colorize(el, v, max){
+  if(v==null){ el.textContent="-"; return; }
+  el.textContent = v.toFixed(0);
+  el.classList.remove('ok','warn','bad');
+  const r=v/max;
+  if(r>=0.8) el.classList.add('ok'); else if(r>=0.5) el.classList.add('warn'); else el.classList.add('bad');
+}
+function makeCard(title, items){
+  if(!items || items.length===0) return null;
+  const card=document.createElement('div');
+  card.className='card';
+  const body=document.createElement('div');
+  body.className='body';
+  const h=document.createElement('h3');
+  h.textContent=title;
+  h.style.margin='0 0 6px';
+  const ul=document.createElement('ul');
+  ul.className='clean';
+  ul.style.paddingLeft='1.2em';
+  for(const t of items){ const li=document.createElement('li'); li.textContent=t; ul.appendChild(li); }
+  body.appendChild(h); body.appendChild(ul); card.appendChild(body);
+  return card;
+}
+function renderQualCards(sections){
+  $qualCards.innerHTML='';
+  const c1=makeCard('【良い点✨】', sections.good);
+  const c2=makeCard('【もっと良くなる点💡】', sections.better);
+  const c3=makeCard('【7つの習慣の観点📘】', sections.habits);
+  [c1,c2,c3].forEach(c=>c && $qualCards.appendChild(c));
+  if(!c1 && !c2 && !c3){
+    const p=document.createElement('p');
+    p.className='hint';
+    p.textContent='特筆すべき定性フィードバックはありませんでした。';
+    $qualCards.appendChild(p);
+  }
+}
 
-    // 直近の結果（保存時に使う）
-    window.__latest_feedback_text = null; // Difyの定性本文（丸ごと）
-    window.__latest_sections      = null; // {good:[], better:[], habits:[]}
-    window.__latest_values        = null; // Difyの生値オブジェクト
-    window.__latest_scores        = null; // {coaching, listening, technique, next_step, total}
+// ログインユーザー
+(async()=>{ const { data:{ user } } = await window.sb.auth.getUser(); currentUser=user; })();
 
-    // -------------------------
-    // ユーティリティ（UI）
-    // -------------------------
-    function setBusy(busy) {
-      el.btnEvaluate.disabled = busy;
-      el.btnSave.disabled     = busy || !window.__latest_scores;
-      el.status.textContent   = busy ? "評価中…" : "待機中";
-    }
+// Dify: ファイルアップロード
+document.getElementById("uploadBtn").addEventListener("click", async ()=>{
+  const file = document.getElementById("fileInput").files[0];
+  const status = document.getElementById("uploadStatus");
+  if(!file){ alert("ファイルを選択してください"); return; }
+  try{
+    status.textContent="アップロード中…";
+    const form=new FormData(); form.append("file",file);
+    const res=await fetch(`${DIFY_API_BASE}/files`,{method:"POST",headers:{ "Authorization":`Bearer ${DIFY_API_KEY}` },body:form});
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data=await res.json(); lastUploadedFileId=data.id; status.textContent="アップロード完了 ✓";
+  }catch(e){ console.error(e); status.textContent="アップロード失敗"; }
+});
 
-    function renderQualitativeCards(container, sections) {
-      container.innerHTML = '';
-      const makeCard = (title, items) => {
-        if (!items || items.length === 0) return null;
-        const card = document.createElement('div');
-        card.className = 'card';
-        const h3 = document.createElement('h3');
-        h3.textContent = title;
-        h3.style.marginTop = '0';
-        h3.style.marginBottom = '8px';
-        const ul = document.createElement('ul');
-        ul.style.paddingLeft = '1.2em';
-        (items || []).forEach(t => {
-          const li = document.createElement('li');
-          li.textContent = t;
-          ul.appendChild(li);
-        });
-        card.appendChild(h3);
-        card.appendChild(ul);
-        return card;
-      };
+// Dify: 評価実行
+document.getElementById("startEvalBtn").addEventListener("click", async ()=>{
+  const name=document.getElementById("name").value.trim();
+  if(!name){ alert("氏名は必須です"); return; }
+  const relation=document.getElementById("relation").value.trim();
+  const category=document.getElementById("category").value.trim();
+  const transcript=document.getElementById("transcript").value.trim();
+  const query=[
+    `氏名：${name}`,
+    relation?`参加者：${relation}`:"",
+    category?`種別：${category}`:"",
+    transcript?`会話ログ：\n${transcript}`:""
+  ].filter(Boolean).join("\n\n");
 
-      const good   = makeCard('【良い点✨】', sections.good);
-      const better = makeCard('【もっと良くなる点💡】', sections.better);
-      const habits = makeCard('【7つの習慣の観点📘】', sections.habits);
-      [good, better, habits].forEach(c => c && container.appendChild(c));
+  $statusLine.textContent="Difyに送信中…";
+  try{
+    const files=[]; if(lastUploadedFileId){ files.push({type:"file",transfer_method:"local",upload_file_id:lastUploadedFileId}); }
+    const body={ inputs:{}, query, user: currentUser?.id || "demo-user", response_mode:"blocking", conversation_id:conversationId, files };
+    const res=await fetch(`${DIFY_API_BASE}/chat-messages`,{
+      method:"POST",
+      headers:{ "Authorization":`Bearer ${DIFY_API_KEY}`,"Content-Type":"application/json" },
+      body:JSON.stringify(body)
+    });
+    const text=await res.text(); if(!res.ok) throw new Error(`HTTP ${res.status}: ${text}`);
+    const data=JSON.parse(text);
+    conversationId=data.conversation_id||conversationId;
 
-      if (!good && !better && !habits) {
-        const empty = document.createElement('div');
-        empty.className = 'muted';
-        empty.textContent = '特筆すべき定性フィードバックはありませんでした。';
-        container.appendChild(empty);
-      }
-    }
+    // ▼ JSONは画面に出さない。テキストから必要部分を抽出してカード描画のみ。
+    const answer=data.answer||"";
+    const parsed=parseFeedback(answer); // {good, better, habits, values}
+    const values=parsed.values||{};
+    const scores=computeScoresFromValues(values);
 
-    function parseDifyTextToSections(text) {
-      const pick = (label) => {
-        const r = new RegExp(`【${label}】([\\s\\S]*?)(?=\\n\\s*【|\\s*$)`, 'm');
-        const m = text.match(r);
-        if (!m) return [];
-        const block = m[1].trim();
-        const lines = block.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const items = [];
-        for (const line of lines) {
-          const mm = line.match(/^(?:・|-|\\*|\\d+\\.)\\s*(.+)$/);
-          items.push(mm ? mm[1] : line);
-        }
-        return items;
-      };
-      return {
-        good:   pick('良い点✨'),
-        better: pick('もっと良くなる点💡'),
-        habits: pick('7つの習慣の観点📘'),
-      };
-    }
+    $resultArea.style.display="block";
+    renderQualCards(parsed);
 
-    // -------------------------
-    // スコア計算（仕様に沿って）
-    // -------------------------
-    function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+    colorize(scoreEls.total, scores.total, 100);
+    colorize(scoreEls.coaching, scores.coaching, 40);
+    colorize(scoreEls.listening, scores.listening, 30);
+    colorize(scoreEls.technique, scores.technique, 20);
+    colorize(scoreEls.next, scores.next_step, 10);
 
-    function calcScoresFromValues(values){
-      // values が無い場合の保険
-      if (!values) {
-        return { coaching: 0, listening: 0, technique: 0, next_step: 0, total: 0 };
-      }
-
-      // 受け取りの想定：
-      // values = {
-      //   open_question_rate: 0.5,
-      //   subordinate_talk_ratio: 0.6,
-      //   reflection_count: 3,
-      //   good: { coaching: 2, listening: 1, technique: 1 },
-      //   bad:  { coaching: 0, listening: 0, technique: 0 },
-      //   next: { touched:1, what:1, when:1 }
-      //   matched_ids: { good:[...], bad:[...], habits:[...] } // 保存用(参考)
-      // }
-
-      const oq = Number(values.open_question_rate ?? 0);     // 0〜1
-      const st = Number(values.subordinate_talk_ratio ?? 0); // 0〜1
-      const rc = Number(values.reflection_count ?? 0);       // 回数（整数）
-      const good = values.good || {};
-      const bad  = values.bad  || {};
-      const nxt  = values.next || {};
-
-      // (1) コーチング的指導（MAX 40）
-      const scoreA = Math.min(20, (oq / 0.30) * 20);
-      const scoreB = st >= 0.60 ? 20 : 20 * (st / 0.60);
-      const scoreC = clamp(
-        (Number(good.coaching ?? 0) - Number(bad.coaching ?? 0)) * 1,
-        -20, 20
-      );
-      const coaching = clamp(scoreA + scoreB + scoreC, 0, 40);
-
-      // (2) 傾聴・共感（MAX 30）
-      const listenA = Math.min(30, (rc / 3) * 30);
-      const listenB = clamp(
-        (Number(good.listening ?? 0) * 1) - (Number(bad.listening ?? 0) * 3),
-        -20, 6
-      );
-      const listening = clamp(listenA + listenB, 0, 30);
-
-      // (3) 指導テクニック（MAX 20、底上げ+10）
-      const technique = clamp(10 + (Number(good.technique ?? 0) - Number(bad.technique ?? 0)), 0, 20);
-
-      // (4) 次の一手（MAX 10）
-      const next_step = clamp(
-        3 * Number(nxt.touched ? 1 : 0) +
-        4 * Number(nxt.what ? 1 : 0) +
-        3 * Number(nxt.when ? 1 : 0),
-        0, 10
-      );
-
-      const total = clamp(coaching + listening + technique + next_step, 0, 100);
-
-      return { coaching: Math.round(coaching), listening: Math.round(listening), technique: Math.round(technique), next_step: Math.round(next_step), total: Math.round(total) };
-    }
-
-    function updateScoreSummary(scores){
-      if (!scores) { el.scoreSummary.textContent = '—'; return; }
-      el.scoreSummary.textContent =
-        `TOTAL ${scores.total} /100  ｜ コーチング ${scores.coaching}/40 ｜ 傾聴 ${scores.listening}/30 ｜ テクニック ${scores.technique}/20 ｜ 次の一手 ${scores.next_step}/10`;
-    }
-
-    // -------------------------
-    // Supabase：アプリ利用ユーザーIDを取得
-    // （ログイン済み前提。users は app スキーマ）
-    // -------------------------
-    async function getMyAppUserId(){
-      const { data: { user }, error: authErr } = await window.sb.auth.getUser();
-      if (authErr || !user) throw new Error("ログイン状態を確認できません。");
-      // 既に登録済みユーザーのみ利用する方針 → 検出できなければエラー
-      const { data, error } = await window.sb
-        .from('users', { schema: 'app' })
-        .select('user_id')
-        .eq('auth_user_id', user.id)
-        .single();
-      if (error || !data) throw new Error("このアカウントはアプリ利用ユーザーとして登録されていません。管理者へ連絡してください。");
-      return data.user_id;
-    }
-
-    // -------------------------
-    // Dify呼び出し（ファイル→ID化、テキスト評価）
-    // -------------------------
-    async function uploadFileToDify(file){
-      const form = new FormData();
-      form.append('file', file);
-      // Difyの /files
-      const res = await fetch(`${DIFY_API_BASE}/files`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${DIFY_API_KEY}` },
-        body: form
-      });
-      if (!res.ok) throw new Error(`Difyファイルアップロードに失敗: ${res.status}`);
-      return res.json(); // { id, ... }
-    }
-
-    async function callDifyEvaluate({text, fileId, meta}){
-      // response_mode: "blocking" で一括受信
-      const body = {
-        inputs: {
-          boss_name:    meta.bossName || '',
-          partner_name: meta.partnerName || '',
-          category:     meta.category || '',
-          transcript:   text || '',
-          file_id:      fileId || ''
-        },
-        query: '1on1の評価をお願いします。',
-        user: meta.user || 'demo-user',
-        response_mode: 'blocking'
-      };
-      const res = await fetch(`${DIFY_API_BASE}/chat-messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${DIFY_API_KEY}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(body)
-      });
-      if (!res.ok) throw new Error(`Dify評価に失敗: ${res.status}`);
-      return res.json();
-    }
-
-    // -------------------------
-    // 評価 → 画面描画
-    // -------------------------
-    async function handleDifyResponseAndRender(difyRes) {
-      const text   = (difyRes?.answer ?? difyRes?.data?.answer ?? '').trim();
-      const values = (difyRes?.data?.values ?? difyRes?.values ?? null);
-
-      const sections = parseDifyTextToSections(text);
-      renderQualitativeCards(el.qualitative, sections);
-
-      const scores = calcScoresFromValues(values);
-      updateScoreSummary(scores);
-
-      // 保存用に保持
-      window.__latest_feedback_text = text;
-      window.__latest_sections      = sections;
-      window.__latest_values        = values;
-      window.__latest_scores        = scores;
-
-      // 保存ボタン有効化
-      el.btnSave.disabled = !scores;
-    }
-
-    // -------------------------
-    // 保存処理（sessions → session_feedbacks → usage）
-    // -------------------------
-    async function saveAll(){
-      const user_id = await getMyAppUserId();
-
-      // 1) sessions
-      const sessionInsert = await window.sb
-        .from('sessions', { schema: 'app' })
-        .insert([{
-          user_id,
-          category: el.category.value || null,
-          values_json: window.__latest_values || {},
-          scores_json: window.__latest_scores || {}
-        }])
-        .select('session_id, created_at')
-        .single();
-      if (sessionInsert.error) throw sessionInsert.error;
-      const session_id = sessionInsert.data.session_id;
-
-      // 2) session_feedbacks（定性）
-      const s = window.__latest_sections || { good:[], better:[], habits:[] };
-      const joinOrNull = (arr) => (arr && arr.length ? arr.map(v=>`・${v}`).join('\n') : null);
-      const fbInsert = await window.sb
-        .from('session_feedbacks', { schema: 'app' })
-        .insert([{
-          session_id,
-          good_points:   joinOrNull(s.good),
-          better_points: joinOrNull(s.better),
-          seven_habits:  joinOrNull(s.habits),
-          raw_json:      { text: window.__latest_feedback_text }
-        }])
-        .select('id')
-        .single();
-      if (fbInsert.error) throw fbInsert.error;
-
-      // 3) usage（監査用）
-      const usageInsert = await window.sb
-        .from('usage', { schema: 'app' })
-        .insert([{ user_id, session_id }])
-        .select('id')
-        .single();
-      if (usageInsert.error) {
-        // usageは失敗しても致命ではないのでログだけ
-        console.warn('usage insert failed:', usageInsert.error);
-      }
-
-      return { session_id };
-    }
-
-    // -------------------------
-    // イベント
-    // -------------------------
-    el.btnEvaluate.addEventListener('click', async () => {
-      try {
-        setBusy(true);
-        el.qualitative.innerHTML = '';
-        el.scoreSummary.textContent = '—';
-
-        // ログイン確認（保存前に一度見ておく）
-        await getMyAppUserId();
-
-        // 入力を回収
-        const bossName    = el.bossName.value.trim();
-        const partnerName = el.partnerName.value.trim();
-        const category    = el.category.value.trim();
-        const text        = el.transcriptText.value.trim();
-        const file        = el.transcriptFile.files[0];
-
-        if (!text && !file) {
-          alert('会話ログのテキストを貼り付けるか、ファイルを選択してください。');
-          return;
-        }
-
-        // ファイルがあればDifyにアップ
-        let fileId = '';
-        if (file) {
-          el.status.textContent = 'ファイルをアップロード中…';
-          const up = await uploadFileToDify(file);
-          fileId = up?.id || '';
-        }
-
-        // 評価
-        el.status.textContent = '評価中…';
-        const { data: { user } } = await window.sb.auth.getUser();
-        const difyRes = await callDifyEvaluate({
-          text,
-          fileId,
-          meta: {
-            bossName, partnerName, category,
-            user: user?.id || 'demo-user'
-          }
-        });
-
-        await handleDifyResponseAndRender(difyRes);
-        el.status.textContent = '評価完了';
-      } catch (e) {
-        console.error(e);
-        alert(`評価でエラー：${e.message || e}`);
-        el.status.textContent = 'エラー';
-      } finally {
-        setBusy(false);
-      }
+    // 保存ハンドラ
+    $saveStatus.textContent="";
+    document.getElementById("saveBtn").onclick = ()=> saveAllToDB({
+      category,
+      rawFromDify:{ text:answer, good:parsed.good, better:parsed.better, sevenHabits:parsed.habits, values },
+      values, scores
     });
 
-    el.btnSave.addEventListener('click', async () => {
-      try {
-        setBusy(true);
-        el.status.textContent = '保存中…';
+    $statusLine.textContent="評価完了。必要なら『保存』を押してください。";
+  }catch(e){ console.error(e); $statusLine.textContent="エラー: "+e.message; }
+});
 
-        if (!window.__latest_scores) {
-          alert('先に評価を実行してください。');
-          return;
-        }
-        const { session_id } = await saveAll();
+// === パーサ（JSONは表示しない／内部抽出のみ） ===
+function parseFeedback(text){
+  const result={good:[], better:[], habits:[], values:null};
 
-        el.status.textContent = `保存完了（session_id: ${session_id}）`;
-        // 次画面への遷移は必要に応じて：
-        // location.href = './feedbacklog.html';
-      } catch (e) {
-        console.error(e);
-        alert(`保存でエラー：${e.message || e}`);
-        el.status.textContent = 'エラー';
-      } finally {
-        setBusy(false);
+  // 1) もし本文に===JSON===ブロックがあれば抽出（画面には出さない）
+  try{
+    const m = text.split("===JSON===")[1];
+    if(m){
+      const j=JSON.parse(m.trim());
+      if(j.values) result.values=j.values;
+    }else{
+      // 末尾に純JSONらしきものがあれば拾う（堅牢化）
+      const jm = text.match(/\{[\s\S]*\}$/);
+      if(jm){
+        const j=JSON.parse(jm[0]);
+        if(j.values) result.values=j.values;
       }
-    });
+    }
+  }catch{ /* 解析失敗は無視（UIには出さない） */ }
 
-  </script>
-</body>
-</html>
+  // 2) セクションをテキストから抽出 → 箇条書き化
+  const g=pickSection(text,/【?良い点.*?】?/);
+  const b=pickSection(text,/【?もっと良くなる点.*?】?/);
+  const h=pickSection(text,/【?7つの習慣.*?】?/);
+
+  result.good   = toBullets(g);
+  result.better = toBullets(b);
+  result.habits = toBullets(h);
+
+  return result;
+
+  function pickSection(t,re){
+    const idx=t.search(re);
+    if(idx===-1) return "";
+    const after=t.slice(idx);
+    const next=after.search(/【?もっと良くなる点.*?】?|【?7つの習慣.*?】?/);
+    return next>0? after.slice(0,next) : after;
+  }
+  function toBullets(block){
+    if(!block) return [];
+    const lines=block.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const arr=[];
+    for(const s of lines){
+      // 「・」「-」「*」「1. 」などの先頭記号を吸収
+      const m=s.match(/^(?:[-・*]|\d+\.)\s*(.*)$/);
+      const item=m?m[1]:s;
+      if(!/良い点|もっと良くなる点|7つの習慣/.test(item)) arr.push(item);
+    }
+    // 重複は除外
+    return Array.from(new Set(arr));
+  }
+}
+
+// === スコア ===
+function computeScoresFromValues(v){
+  const openRate=Number(v?.open_question_rate??0);
+  const talkRatio=Number(v?.subordinate_talk_ratio??0);
+  const refl=Number(v?.reflection_count??0);
+  const good=v?.good||{coaching:0,listening:0,technique:0};
+  const bad =v?.bad ||{coaching:0,listening:0,technique:0};
+  const nxt =v?.next||{touched:0,what:0,when:0};
+
+  const A1=Math.min(20,(openRate/0.30)*20);
+  const B1=(talkRatio>=0.60)?20:20*(talkRatio/0.60);
+  const C1=clamp((+1*Number(good.coaching||0))-(1*Number(bad.coaching||0)),-20,20);
+  const coaching=clamp(A1+B1+C1,0,40);
+
+  const A2=Math.min(30,(refl/3)*30);
+  const B2=clamp((+1*Number(good.listening||0))-(3*Number(bad.listening||0)),-20,6);
+  const listening=clamp(A2+B2,0,30);
+
+  const technique=clamp(10+(Number(good.technique||0))-(Number(bad.technique||0)),0,20);
+
+  const next_step=clamp(3*(nxt.touched?1:0)+4*(nxt.what?1:0)+3*(nxt.when?1:0),0,10);
+
+  const total=coaching+listening+technique+next_step;
+  return { coaching, listening, technique, next_step, total };
+}
+
+// === Supabase ===
+async function getMyAppUserId(){
+  const { data:{ user } } = await window.sb.auth.getUser();
+  const { data, error } = await window.sb.from('users',{schema:'app'}).select('user_id').eq('auth_user_id', user.id).single();
+  if(error) throw error; return data.user_id;
+}
+async function createSession({ category, values_json, scores_json }){
+  const myId = await getMyAppUserId();
+  const { data, error } = await window.sb.from('sessions',{schema:'app'}).insert([{ user_id:myId, category, values_json, scores_json }]).select('session_id').single();
+  if(error) throw error; return data.session_id;
+}
+async function saveFeedback(session_id, { good_points, better_points, seven_habits, raw_json }){
+  const { error } = await window.sb.from('session_feedbacks',{schema:'app'}).insert([{ session_id, good_points, better_points, seven_habits, raw_json }]);
+  if(error) throw error;
+}
+async function saveAllToDB({ category, rawFromDify, values, scores }){
+  try{
+    $saveStatus.textContent="保存中…";
+    const gp=(rawFromDify.good||[]).map(s=>`- ${s}`).join("\n");
+    const bp=(rawFromDify.better||[]).map(s=>`- ${s}`).join("\n");
+    const sh=(rawFromDify.sevenHabits||[]).map(s=>`- ${s}`).join("\n");
+    const sessionId=await createSession({ category, values_json:values, scores_json:scores });
+    await saveFeedback(sessionId,{ good_points:gp, better_points:bp, seven_habits:sh, raw_json:rawFromDify });
+    const myId=await getMyAppUserId();
+    await window.sb.from('usage',{schema:'app'}).insert([{ user_id:myId, session_id:sessionId }]);
+    $saveStatus.textContent="保存しました ✓";
+  }catch(e){ console.error(e); $saveStatus.textContent="保存エラー: "+e.message; }
+}
+</script>
+</body></html>
