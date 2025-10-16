@@ -10,7 +10,12 @@
     { href:"dashboard.html", icon:"📈", label:"ダッシュボード" },
     { href:"soudan.html", icon:"💬", label:"なんでも相談" },
     { href:"shindan.html", icon:"🧭", label:"管理職タイプ診断" },
-    { href:"https://www.smartboarding.jp/", icon:"🎯", label:"Smart Boarding", external:true },
+{ 
+  href: "https://www.smartboarding.jp/", 
+  icon: "<img src='./SBlogo.png' alt='SB' style='width:20px;height:20px;vertical-align:middle;' />",
+  label: "Smart Boarding", 
+  external: true 
+},
     { href:"setting.html", icon:"⚙️", label:"設定" },
   ];
 
