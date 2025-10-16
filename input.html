@@ -285,16 +285,28 @@ function parseFeedback(text){
     }
 
     // ========= Supabase（appスキーマ） =========
-    async function getMyAppUserId(){
-      const user = await getCurrentUserSafe();
-      const { data, error } = await window.sb
-        .from('users', { schema: 'app' })
-        .select('user_id')
-        .eq('auth_user_id', user.id)
-        .single();
-      if (error || !data) throw new Error("このアカウントはアプリ利用ユーザーとして登録されていません。管理者に連絡してください。");
-      return data.user_id;
-    }
+async function getMyAppUserId(){
+  const { data:{ user }, error:authErr } = await window.sb.auth.getUser();
+  if (authErr || !user) throw new Error("ログイン状態を確認できません。");
+
+  let { data:row } = await window.sb
+    .from('users', { schema:'app' })
+    .select('user_id')
+    .eq('auth_user_id', user.id)
+    .maybeSingle();
+
+  if (!row) {
+    const ins = await window.sb
+      .from('users', { schema:'app' })
+      .insert([{ auth_user_id:user.id, email:user.email ?? null, name:user.user_metadata?.full_name ?? null }])
+      .select('user_id')
+      .single();
+    if (ins.error) throw ins.error;
+    row = ins.data;
+  }
+  return row.user_id;
+}
+
     async function createSession({ category, values_json, scores_json }){
       const user_id = await getMyAppUserId();
       const { data, error } = await window.sb
