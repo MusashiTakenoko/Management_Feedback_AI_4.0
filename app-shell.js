@@ -15,8 +15,7 @@
   icon: "<img src='./SBlogo.png' alt='SB' style='width:20px;height:20px;vertical-align:middle;' />",
   label: "Smart Boarding", 
   external: true 
-},
-    { href:"setting.html", icon:"⚙️", label:"設定" },
+},    { href:"setting.html", icon:"⚙️", label:"設定" },
   ];
 
   function isLoginPage(){
