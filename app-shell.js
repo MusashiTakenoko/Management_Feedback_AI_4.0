@@ -5,7 +5,7 @@
 
   const navItems = [
     { href:"index.html", icon:"🏠", label:"ホーム" },
-    { href:"input.html", icon:"📝", label:"ログ入力（評価）" },
+    { href:"input.html", icon:"📝", label:"1on1フィードバック" },
     { href:"feedbacklog.html", icon:"🗂️", label:"過去のフィードバック" },
     { href:"dashboard.html", icon:"📈", label:"ダッシュボード" },
     { href: "https://www.smartboarding.jp/",  icon: "<img src='./SBlogo.png' alt='SB' style='width:20px;height:20px;vertical-align:middle;' />", label: "Smart Boarding", },
