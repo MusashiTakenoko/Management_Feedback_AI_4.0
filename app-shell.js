@@ -61,7 +61,7 @@
   function tplAppbar(email){
     return `
       <header class="appbar">
-        <h1>1on1フィードバックAI</h1>
+        <h1>1on1フィードバックAI4.0</h1>
         <div class="spacer"></div>
         <div class="user">${email ? `ログイン中：${email}` : ""}</div>
       </header>
