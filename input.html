@@ -208,52 +208,49 @@
       return JSON.parse(text);
     }
 
-    // ========= パース（JSONは表示しない） =========
-function parseFeedback(text){
-  const result = { good: [], better: [], habits: [], values: null };
+    // ========= パース（JSONは表示しない／見出しゆらぎ対応） =========
+    function parseFeedback(text){
+      const result = { good: [], better: [], habits: [], values: null };
+      const raw = String(text ?? "");
 
-  // --- ① JSONブロックを検出して取り除く ---
-  // 「===JSON===」以降または末尾の { ... } 部分を削除
-  let cleaned = text;
-  if (cleaned.includes("===JSON===")) {
-    cleaned = cleaned.split("===JSON===")[0];
-  } else {
-    const jsonMatch = cleaned.match(/\{[\s\S]*\}$/);
-    if (jsonMatch) cleaned = cleaned.replace(jsonMatch[0], "");
-  }
+      // --- JSONダンプを本文から除去（画面には出さない）---
+      let cleaned = raw
+        .replace(/===JSON===([\s\S]*)$/m, "")   // マーカー以降
+        .replace(/\n?\s*\{[\s\S]*\}\s*$/m, "") // 末尾の純JSON
+        .trim();
 
-  // --- ② JSONは内部でだけ解析（画面には出さない）---
-  try {
-    const m = text.split("===JSON===")[1] || (text.match(/\{[\s\S]*\}$/)?.[0] ?? "");
-    if (m) {
-      const j = JSON.parse(m.trim());
-      if (j.values) result.values = j.values;
+      // --- values だけ内部抽出（失敗は無視） ---
+      try {
+        const block = raw.split("===JSON===")[1] || (raw.match(/\{[\s\S]*\}$/)?.[0] ?? "");
+        if (block) {
+          const j = JSON.parse(block.trim());
+          if (j && j.values) result.values = j.values;
+        }
+      } catch { /* ignore */ }
+
+      // --- セクション抽出（見出し末尾の絵文字なども許容） ---
+      const section = (labelRe) => {
+        // 例： 【良い点✨】/【良い点】/【良い点★】 → 「良い点」の後に何があってもOK
+        const re = new RegExp(`【\\s*${labelRe}[^】]*】([\\s\\S]*?)(?=\\n\\s*【|$)`, 'm');
+        const m = cleaned.match(re);
+        return m ? m[1].trim() : "";
+      };
+      const toList = (block) => {
+        if (!block) return [];
+        return block
+          .split(/\r?\n/)
+          .map(s => s.trim())
+          .filter(Boolean)
+          .map(s => s.replace(/^(?:・|-|\\*|\\d+\\.)\\s*/, ""))   // 箇条書き先頭記号を除去
+          .filter(s => !/^(?:【?\\s*良い点|【?\\s*もっと良くなる点|【?\\s*7つの習慣)/.test(s)); // 見出しっぽい行は除外
+      };
+
+      result.good   = toList(section("良い点"));
+      result.better = toList(section("もっと良くなる点"));
+      result.habits = toList(section("7つの習慣"));
+
+      return result;
     }
-  } catch { /* 無視OK */ }
-
-  // --- ③ セクションを抽出 ---
-  const pick = (label) => {
-    const re = new RegExp(`【${label}】([\\s\\S]*?)(?=\\n\\s*【|$)`, 'm');
-    const m = cleaned.match(re);
-    return m ? m[1].trim() : "";
-  };
-
-  const toList = (block) => {
-    if (!block) return [];
-    return block
-      .split(/\r?\n/)
-      .map(s => s.trim())
-      .filter(Boolean)
-      .map(s => s.replace(/^(?:・|-|\d+\.)\s*/, ""))
-      .filter(s => !/良い点|もっと良くなる点|7つの習慣/.test(s));
-  };
-
-  result.good   = toList(pick("良い点✨"));
-  result.better = toList(pick("もっと良くなる点💡"));
-  result.habits = toList(pick("7つの習慣の観点📘"));
-
-  return result;
-}
 
     // ========= スコア計算 =========
     function calcScores(values){
@@ -285,49 +282,50 @@ function parseFeedback(text){
     }
 
     // ========= Supabase（appスキーマ） =========
-async function getMyAppUserId(){
-  const { data:{ user }, error:authErr } = await window.sb.auth.getUser();
-  if (authErr || !user) throw new Error("ログイン状態を確認できません。");
+    async function getMyAppUserId(){
+      const { data:{ user }, error:authErr } = await window.sb.auth.getUser();
+      if (authErr || !user) throw new Error("ログイン状態を確認できません。");
 
-  let { data:row } = await window.sb
-    .from('users', { schema:'app' })
-    .select('user_id')
-    .eq('auth_user_id', user.id)
-    .maybeSingle();
+      let { data:row } = await window.sb
+        .schema('app').from('users')
+        .select('user_id')
+        .eq('auth_user_id', user.id)
+        .maybeSingle();
 
-  if (!row) {
-    const ins = await window.sb
-      .from('users', { schema:'app' })
-      .insert([{ auth_user_id:user.id, email:user.email ?? null, name:user.user_metadata?.full_name ?? null }])
-      .select('user_id')
-      .single();
-    if (ins.error) throw ins.error;
-    row = ins.data;
-  }
-  return row.user_id;
-}
+      if (!row) {
+        const ins = await window.sb
+          .schema('app').from('users')
+          .insert([{ auth_user_id:user.id, email:user.email ?? null, name:user.user_metadata?.full_name ?? null }])
+          .select('user_id')
+          .single();
+        if (ins.error) throw ins.error;
+        row = ins.data;
+      }
+      return row.user_id;
+    }
 
     async function createSession({ category, values_json, scores_json }){
       const user_id = await getMyAppUserId();
       const { data, error } = await window.sb
-        .from('sessions', { schema: 'app' })
+        .schema('app').from('sessions')
         .insert([{ user_id, category, values_json, scores_json }])
         .select('session_id')
         .single();
       if (error) throw error;
       return data.session_id;
     }
+
     async function insertFeedback(session_id, { good_points, better_points, seven_habits, raw_json }){
       const { error } = await window.sb
-        .from('session_feedbacks', { schema: 'app' })
+        .schema('app').from('session_feedbacks')
         .insert([{ session_id, good_points, better_points, seven_habits, raw_json }]);
       if (error) throw error;
     }
+
     async function insertUsage(session_id){
       const user_id = await getMyAppUserId();
-      // 失敗しても致命ではないのでtryにしない（上に任せる）
       await window.sb
-        .from('usage', { schema: 'app' })
+        .schema('app').from('usage')
         .insert([{ user_id, session_id }]);
     }
 
