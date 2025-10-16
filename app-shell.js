@@ -60,7 +60,7 @@
     return `
       <header class="appbar">
   <img src="logomane.png" alt="logo" style="width:40px;height:40px;border-radius:50%">
-        <h1>1on1フィードバックAI4.0</h1>
+        <h1>1on1フィードバックAI 4.0</h1>
         <div class="spacer"></div>
         <div class="user">${email ? `ログイン中：${email}` : ""}</div>
       </header>
