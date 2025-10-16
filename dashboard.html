@@ -32,6 +32,14 @@
   let lineChart, barChart;
 
   (async()=>{
+    // まずログイン確認（権限エラーの見落とし防止）
+    const { data:{ user }, error:authErr } = await window.sb.auth.getUser();
+    if (authErr || !user) {
+      console.error(authErr||'no user');
+      document.getElementById('trendText').textContent = '未ログインです';
+      return;
+    }
+
     const rows = await loadScores(200);
     renderLine(rows.slice(-20));
     renderTrend(rows);
@@ -39,10 +47,21 @@
   })();
 
   async function loadScores(limit=200){
-    const { data, error } = await window.sb.from('sessions',{schema:'app'})
-      .select('created_at, scores_json').order('created_at',{ascending:true}).limit(limit);
-    if(error){ console.error(error); return []; }
-    return (data||[]).map(r=>({
+    const { data, error } = await window.sb
+      .schema('app').from('sessions')
+      .select('created_at, scores_json')
+      .order('created_at',{ascending:true})
+      .limit(limit);
+    if(error){
+      console.error(error);
+      document.getElementById('trendText').textContent = '読み込みエラー';
+      return [];
+    }
+    if(!data || data.length===0){
+      document.getElementById('trendText').textContent = 'データがまだありません';
+      return [];
+    }
+    return data.map(r=>({
       x:new Date(r.created_at),
       total:r.scores_json?.total ?? null,
       coaching:r.scores_json?.coaching ?? null,
@@ -51,14 +70,17 @@
       next_step:r.scores_json?.next_step ?? null,
     }));
   }
+
   function renderLine(rows){
     const labels=rows.map(r=>fmt(r.x)); const totals=rows.map(r=>r.total);
     if(lineChart) lineChart.destroy();
     lineChart=new Chart(document.getElementById('lineChart'),{
-      type:'line', data:{ labels, datasets:[{ label:'TOTAL', data:totals, tension:0.25, pointRadius:3 }]},
+      type:'line',
+      data:{ labels, datasets:[{ label:'TOTAL', data:totals, tension:0.25, pointRadius:3 }]},
       options:{ responsive:true, scales:{ y:{ suggestedMin:0, suggestedMax:100 } } }
     });
   }
+
   function renderAverages(rows){
     const avg=arr=>{ const v=arr.filter(x=>typeof x==='number'); return v.length? v.reduce((a,b)=>a+b,0)/v.length : null; };
     const co=avg(rows.map(r=>r.coaching)), li=avg(rows.map(r=>r.listening)), te=avg(rows.map(r=>r.technique)), ne=avg(rows.map(r=>r.next_step));
@@ -69,10 +91,12 @@
       <span class="kv">NEXT平均 <b>${num(ne)}</b></span>`;
     if(barChart) barChart.destroy();
     barChart=new Chart(document.getElementById('barChart'),{
-      type:'bar', data:{ labels:['COACHING(40)','LISTENING(30)','TECH(20)','NEXT(10)'], datasets:[{ label:'平均スコア', data:[co,li,te,ne] }]},
+      type:'bar',
+      data:{ labels:['COACHING(40)','LISTENING(30)','TECH(20)','NEXT(10)'], datasets:[{ label:'平均スコア', data:[co,li,te,ne] }]},
       options:{ responsive:true, scales:{ y:{ suggestedMin:0, suggestedMax:40 } } }
     });
   }
+
   function renderTrend(rows){
     const t=document.getElementById('trendText');
     const totals=rows.map(r=>r.total).filter(x=>typeof x==='number');
@@ -83,6 +107,7 @@
     const cls=diff>1?'ok': diff<-1?'bad':'hint';
     t.innerHTML=`<span class="${cls}">${arrow} 直近3回 ${num(last3)} / 前3回 ${num(prev3)}（差 ${num(diff)}）</span>`;
   }
+
   const fmt=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const num=v=>(v==null||isNaN(v))?'-':v.toFixed(1);
 </script>
