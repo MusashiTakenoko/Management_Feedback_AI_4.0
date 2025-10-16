@@ -29,37 +29,41 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>
   AppShell.mountShell();
-  let lineChart, barChart;
 
-  // --- サインイン復元を待つヘルパー ---
-  async function waitAuthReady(maxMs=4000){
-    const start=Date.now();
-    while(Date.now()-start<maxMs){
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+  async function waitSb(maxMs=5000){
+    const t0=Date.now();
+    while(Date.now()-t0<maxMs){ if(window.sb) return true; await sleep(100); }
+    return !!window.sb;
+  }
+  async function waitAuthReady(maxMs=5000){
+    const t0=Date.now();
+    while(Date.now()-t0<maxMs){
       const { data:{ user } } = await window.sb.auth.getUser();
-      if(user) return user;
-      await new Promise(r=>setTimeout(r,150));
+      if (user) return user;
+      await sleep(150);
     }
-    // 最後に一度 onAuthStateChange を待ってみる（短時間）
-    const u = await new Promise(resolve=>{
-      const { data:sub } = window.sb.auth.onAuthStateChange((_e, session)=>{
-        if(session?.user){ resolve(session.user); sub.subscription.unsubscribe(); }
-      });
-      setTimeout(()=>{ try{ sub.subscription.unsubscribe(); }catch(_){} resolve(null); }, 1200);
-    });
-    return u;
+    return null;
   }
 
-  (async()=>{
-    const user = await waitAuthReady();
-    if(!user){ document.getElementById('trendText').textContent='未ログインです'; return; }
+  let lineChart, barChart;
 
-    document.getElementById('trendText').textContent='読み込み中…';
+  (async()=>{
+    const sbReady = await waitSb();
+    if(!sbReady){ setStatus('初期化に失敗しました（sb未準備）'); return; }
+
+    const user = await waitAuthReady();
+    if(!user){ setStatus('未ログインです'); return; }
+
+    setStatus('読み込み中…');
     const rows = await loadScores(200);
-    if(rows.length===0){ document.getElementById('trendText').textContent='データがまだありません'; return; }
+    if(rows.length===0){ setStatus('データがまだありません'); return; }
     renderLine(rows.slice(-20));
     renderTrend(rows);
     renderAverages(rows);
   })();
+
+  function setStatus(msg){ document.getElementById('trendText').textContent = msg; }
 
   async function loadScores(limit=200){
     const { data, error } = await window.sb
@@ -67,11 +71,7 @@
       .select('created_at, scores_json')
       .order('created_at',{ascending:true})
       .limit(limit);
-    if(error){
-      console.error(error);
-      document.getElementById('trendText').textContent = '読み込みエラー';
-      return [];
-    }
+    if(error){ console.error(error); setStatus('読み込みエラー'); return []; }
     return (data||[]).map(r=>({
       x:new Date(r.created_at),
       total:r.scores_json?.total ?? null,

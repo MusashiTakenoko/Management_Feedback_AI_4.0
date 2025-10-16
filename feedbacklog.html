@@ -12,7 +12,7 @@
         <button id="moreBtn" class="btn btn-primary" style="display:none">もっと見る</button>
       </div>
       <div id="list" class="grid2" style="margin-top:10px"></div>
-      <div id="emptyMsg" class="hint" style="margin-top:8px; display:none">まだ保存された履歴がありません。</div>
+      <div id="emptyMsg" class="hint" style="margin-top:8px;">サインイン確認中…</div>
     </div></section>
   </main>
 </div>
@@ -22,21 +22,48 @@
 <script>
   AppShell.mountShell();
 
-  // auth 復元待ち
-  async function waitAuthReady(maxMs=4000){
-    const start=Date.now();
-    while(Date.now()-start<maxMs){
-      const { data:{ user } } = await window.sb.auth.getUser();
-      if(user) return user;
-      await new Promise(r=>setTimeout(r,150));
+  // ===== ヘルパー（sbとauthの準備を待つ） =====
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+  async function waitSb(maxMs=5000){
+    const t0=Date.now();
+    while(Date.now()-t0<maxMs){
+      if (window.sb) return true;
+      await sleep(100);
     }
-    return null;
+    return !!window.sb;
   }
 
+  async function waitAuthReady(maxMs=5000){
+    const t0=Date.now();
+    while(Date.now()-t0<maxMs){
+      const { data:{ user } } = await window.sb.auth.getUser();
+      if (user) return user;
+      await sleep(150);
+    }
+    // 最後にイベントを短時間だけ待つ
+    return await new Promise(resolve=>{
+      const { data: sub } = window.sb.auth.onAuthStateChange((_e, session)=>{
+        if(session?.user){ resolve(session.user); sub.subscription.unsubscribe(); }
+      });
+      setTimeout(()=>{ try{ sub.subscription.unsubscribe(); }catch{} resolve(null); }, 1200);
+    });
+  }
+
+  // ===== ページ処理 =====
   let page=0; const PAGE=10; let hasMore=true;
+
   (async()=>{
+    // ① sb準備
+    const sbReady = await waitSb();
+    if(!sbReady){ showEmpty('初期化に失敗しました（sb未準備）'); return; }
+
+    // ② ログイン復元待ち
     const user = await waitAuthReady();
-    if(!user){ document.getElementById('emptyMsg').textContent='未ログインです'; document.getElementById('emptyMsg').style.display='block'; return; }
+    if(!user){ showEmpty('未ログインです'); return; }
+
+    // ③ 初回ロード
+    document.getElementById('emptyMsg').textContent = '読み込み中…';
     await loadPage();
   })();
 
@@ -50,10 +77,10 @@
       .order('created_at',{ascending:false})
       .range(from,to);
 
-    if(error){ console.error(error); return; }
+    if(error){ console.error(error); showEmpty('読み込みエラー'); return; }
     if(!sessions || sessions.length===0){
-      hasMore=false; toggle();
-      if(page===0) document.getElementById('emptyMsg').style.display='block';
+      hasMore=false; toggleMore();
+      if(page===0) showEmpty('まだ保存された履歴がありません。');
       return;
     }
 
@@ -66,11 +93,18 @@
 
     const fbMap=new Map((fbs||[]).map(x=>[x.session_id,x]));
     renderCards(sessions.map(s=>({...s, fb:fbMap.get(s.session_id)||{}})));
-    hasMore=sessions.length===PAGE; page+=1; toggle();
+    hasMore=sessions.length===PAGE; page+=1; toggleMore();
+    document.getElementById('emptyMsg').style.display='none';
   }
 
-  function toggle(){ document.getElementById('moreBtn').style.display = hasMore? 'inline-block':'none'; }
+  function toggleMore(){ document.getElementById('moreBtn').style.display = hasMore? 'inline-block':'none'; }
   document.getElementById('moreBtn').addEventListener('click', loadPage);
+
+  function showEmpty(msg){
+    const el=document.getElementById('emptyMsg');
+    el.textContent = msg;
+    el.style.display='block';
+  }
 
   function renderCards(rows){
     const $list=document.getElementById('list');
@@ -104,7 +138,8 @@
     });
   }
   function renderSection(title, md){
-    if(!md) return ''; const items=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/^[-・]\s*/, ''));
+    if(!md) return '';
+    const items=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/^[-・]\s*/, ''));
     if(items.length===0) return '';
     const lis=items.map(x=>`<li>${escapeHtml(x)}</li>`).join('');
     return `<h4 class="hint" style="margin:8px 0 4px">${title}</h4><ul class="clean">${lis}</ul>`;
