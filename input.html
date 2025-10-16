@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ログ入力 | 1on1フィードバックAI</title>
+  <title>1on1フィードバック | 1on1フィードバックAI</title>
 
   <!-- 同じフォルダにあるCSSを読む（パスずれ注意） -->
   <link rel="stylesheet" href="./app.css" />
@@ -35,8 +35,8 @@
         <!-- 入力 -->
         <section class="card">
           <div class="body">
-            <h2 style="margin:0 0 6px">ログ入力（評価）</h2>
-            <p class="hint">文字起こしテキストを貼り付け、評価→保存まで行います。</p>
+            <h2 style="margin:0 0 6px">1on1フィードバック</h2>
+            <p class="hint">文字起こしテキストの貼り付け、またはファイルアップロードで、あなたの1on1についてフィードバックをいたします！</p>
 
             <label for="name">氏名（必須）</label>
             <input id="name" type="text" placeholder="例：河野さん" required>
@@ -45,14 +45,14 @@
             <input id="relation" type="text" placeholder="例：営業部の部下A（入社2年目）">
 
             <label for="category">どんな1on1（目的・カテゴリ）</label>
-            <input id="category" type="text" placeholder="例：② 業務進捗・成果管理系">
+            <input id="category" type="text" placeholder="例：業務進捗・成果管理系">
 
             <label for="transcript">会話ログ（文字起こしテキスト）</label>
             <textarea id="transcript" placeholder="ここに会話ログを貼り付け"></textarea>
 
             <div class="row" style="margin-top:8px;flex-wrap:wrap">
               <input type="file" id="fileInput" style="max-width:280px">
-              <button class="btn btn-ghost" id="uploadBtn">ファイルをDifyへアップロード</button>
+              <button class="btn btn-ghost" id="uploadBtn">ファイルをアップロード</button>
               <span class="hint" id="uploadStatus"></span>
             </div>
 
@@ -209,48 +209,94 @@
     }
 
     // ========= パース（JSONは表示しない／見出しゆらぎ対応） =========
-    function parseFeedback(text){
-      const result = { good: [], better: [], habits: [], values: null };
-      const raw = String(text ?? "");
+// ========= パース（JSONは表示しない／見出しゆらぎに強い） =========
+function parseFeedback(text){
+  const result = { good: [], better: [], habits: [], values: null };
+  const raw = String(text ?? "");
 
-      // --- JSONダンプを本文から除去（画面には出さない）---
-      let cleaned = raw
-        .replace(/===JSON===([\s\S]*)$/m, "")   // マーカー以降
-        .replace(/\n?\s*\{[\s\S]*\}\s*$/m, "") // 末尾の純JSON
-        .trim();
+  // --- 0) JSONダンプはUIに出さない（本文から除去） ---
+  let cleaned = raw
+    .replace(/===JSON===([\s\S]*)$/m, "")     // マーカー以降をカット
+    .replace(/\n?\s*\{[\s\S]*\}\s*$/m, "")   // 末尾の純JSONをカット
+    .trim();
 
-      // --- values だけ内部抽出（失敗は無視） ---
-      try {
-        const block = raw.split("===JSON===")[1] || (raw.match(/\{[\s\S]*\}$/)?.[0] ?? "");
-        if (block) {
-          const j = JSON.parse(block.trim());
-          if (j && j.values) result.values = j.values;
-        }
-      } catch { /* ignore */ }
-
-      // --- セクション抽出（見出し末尾の絵文字なども許容） ---
-      const section = (labelRe) => {
-        // 例： 【良い点✨】/【良い点】/【良い点★】 → 「良い点」の後に何があってもOK
-        const re = new RegExp(`【\\s*${labelRe}[^】]*】([\\s\\S]*?)(?=\\n\\s*【|$)`, 'm');
-        const m = cleaned.match(re);
-        return m ? m[1].trim() : "";
-      };
-      const toList = (block) => {
-        if (!block) return [];
-        return block
-          .split(/\r?\n/)
-          .map(s => s.trim())
-          .filter(Boolean)
-          .map(s => s.replace(/^(?:・|-|\\*|\\d+\\.)\\s*/, ""))   // 箇条書き先頭記号を除去
-          .filter(s => !/^(?:【?\\s*良い点|【?\\s*もっと良くなる点|【?\\s*7つの習慣)/.test(s)); // 見出しっぽい行は除外
-      };
-
-      result.good   = toList(section("良い点"));
-      result.better = toList(section("もっと良くなる点"));
-      result.habits = toList(section("7つの習慣"));
-
-      return result;
+  // --- 0.1) values だけ内部抽出（失敗は無視） ---
+  try {
+    const block = raw.split("===JSON===")[1] || (raw.match(/\{[\s\S]*\}$/)?.[0] ?? "");
+    if (block) {
+      const j = JSON.parse(block.trim());
+      if (j && j.values) result.values = j.values;
     }
+  } catch { /* ignore */ }
+
+  // --- 1) 見出しの正規化（【】に寄せる & 全角/半角コロン吸収） ---
+  // 例：■良い点: → 【良い点】、良い点： → 【良い点】 など
+  const norm = (s)=> s
+    .replace(/[［\[]\s*/g, "【")
+    .replace(/\s*[］\]]/g, "】")
+    .replace(/^[\t ]*(?:■|◆|●|○|\-|\*)\s*(良い点|もっと良くなる点|7つの習慣(?:の観点)?)(?:[\s✨★☆]*[：:])?/gm, "【$1】")
+    .replace(/^[\t ]*(良い点|もっと良くなる点|7つの習慣(?:の観点)?)[\s✨★☆]*[：:]/gm, "【$1】")
+    .replace(/【\s*(良い点|もっと良くなる点|7つの習慣(?:の観点)?)\s*[^】]*】/g, "【$1】"); // 末尾絵文字等は落とす
+  cleaned = norm(cleaned);
+
+  // --- 2) セクションの位置を検出 ---
+  const heads = [];
+  const headRe = /^【(良い点|もっと良くなる点|7つの習慣(?:の観点)?)】/gm;
+  let m;
+  while ((m = headRe.exec(cleaned)) !== null) {
+    heads.push({ label: m[1], index: m.index, end: headRe.lastIndex });
+  }
+  // 本文が「見出し → 本文 → 見出し → 本文 …」の並びである前提で切り出す
+  // 何も見つからない場合でも壊れないようフォールバックあり
+  const sections = { "良い点": "", "もっと良くなる点": "", "7つの習慣": "" };
+
+  if (heads.length) {
+    for (let i=0;i<heads.length;i++){
+      const cur = heads[i];
+      const nextStart = (i+1 < heads.length) ? heads[i+1].index : cleaned.length;
+      const body = cleaned.slice(cur.end, nextStart).trim();
+      if (/^良い点$/.test(cur.label)) sections["良い点"] = body;
+      else if (/^もっと良くなる点$/.test(cur.label)) sections["もっと良くなる点"] = body;
+      else sections["7つの習慣"] = body; // 「7つの習慣」「7つの習慣の観点」どちらでもOK
+    }
+  } else {
+    // --- 2.1) 見出しが1つも無いときのフォールバック ---
+    // 「良い」「改善」「習慣」等のキーワードで緩く分割
+    const lines = cleaned.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+    const goodBuf=[], betterBuf=[], habitsBuf=[], other=[];
+    for(const line of lines){
+      if (/良い|称賛|強み|Good/i.test(line)) goodBuf.push(line);
+      else if (/改善|もっと|課題|Better|Try/i.test(line)) betterBuf.push(line);
+      else if (/7つの習慣|七つの習慣|Win-?Win|相互依存|主体的|刃を研ぐ/i.test(line)) habitsBuf.push(line);
+      else other.push(line);
+    }
+    // 何も拾えなければ全文を「良い点」候補に（見た目を保つため）
+    if (!goodBuf.length && !betterBuf.length && !habitsBuf.length) {
+      goodBuf.push(...other);
+    }
+    sections["良い点"] = goodBuf.join("\n");
+    sections["もっと良くなる点"] = betterBuf.join("\n");
+    sections["7つの習慣"] = habitsBuf.join("\n");
+  }
+
+  // --- 3) 箇条書き化 ---
+  const toList = (block) => {
+    if (!block) return [];
+    return block
+      .split(/\r?\n/)
+      .map(s => s.trim())
+      .filter(Boolean)
+      .map(s => s.replace(/^(?:・|−|-|—|\*|\d+\.)\s*/, "")) // 先頭記号除去
+      .filter(s => !/^【/.test(s))                         // 見出し除去
+      .slice(0, 6); // 念のため取りすぎ防止
+  };
+
+  result.good   = toList(sections["良い点"]);
+  result.better = toList(sections["もっと良くなる点"]);
+  result.habits = toList(sections["7つの習慣"]);
+
+  return result;
+}
 
     // ========= スコア計算 =========
     function calcScores(values){
