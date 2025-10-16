@@ -21,9 +21,24 @@
 <script src="app-shell.js"></script>
 <script>
   AppShell.mountShell();
-  let page=0; const PAGE=10; let hasMore=true;
 
-  (async()=>{ await loadPage(); })();
+  // auth 復元待ち
+  async function waitAuthReady(maxMs=4000){
+    const start=Date.now();
+    while(Date.now()-start<maxMs){
+      const { data:{ user } } = await window.sb.auth.getUser();
+      if(user) return user;
+      await new Promise(r=>setTimeout(r,150));
+    }
+    return null;
+  }
+
+  let page=0; const PAGE=10; let hasMore=true;
+  (async()=>{
+    const user = await waitAuthReady();
+    if(!user){ document.getElementById('emptyMsg').textContent='未ログインです'; document.getElementById('emptyMsg').style.display='block'; return; }
+    await loadPage();
+  })();
 
   async function loadPage(){
     if(!hasMore) return;
@@ -88,15 +103,12 @@
       $list.appendChild(el);
     });
   }
-
   function renderSection(title, md){
-    if(!md) return '';
-    const items=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/^[-・]\s*/, ''));
+    if(!md) return ''; const items=md.split(/\r?\n/).map(s=>s.trim()).filter(Boolean).map(s=>s.replace(/^[-・]\s*/, ''));
     if(items.length===0) return '';
     const lis=items.map(x=>`<li>${escapeHtml(x)}</li>`).join('');
     return `<h4 class="hint" style="margin:8px 0 4px">${title}</h4><ul class="clean">${lis}</ul>`;
   }
-
   function escapeHtml(s){ return s.replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
   const safeNum = v => (v==null || isNaN(v)) ? '-' : Number(v).toFixed(0);
 </script>
